@@ -9,11 +9,12 @@ module.exports = function(grunt) {
       banner: [
                 '/**',
                 ' * <%= pkg.description %>',
-                ' * @version v<%= pkg.version %> - <%= grunt.template.today("yyyy-mm-dd") %>' +
+                ' * @version v<%= pkg.version %> - <%= grunt.template.today("yyyy-mm-dd") %>',
                 ' * @link <%= pkg.homepage %>',
                 ' * @author <%= pkg.author %>',
                 ' * @license MIT License, http://www.opensource.org/licenses/MIT',
-                ' */'
+                ' */',
+                ''
               ].join('\n')
     },
     dirs: {
@@ -49,7 +50,7 @@ module.exports = function(grunt) {
         eqeqeq: true,
         immed: true,
         latedef: true,
-        newcap: true,
+        newcap: false,
         noarg: true,
         sub: true,
         undef: true,
