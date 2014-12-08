@@ -73,7 +73,7 @@ var isMSIE = /*@cc_on!@*/0;
   _.extends = function (_new, old){
     var i;
     for(i in old){
-      if ( !_new.hasOwnProperty(i) || _new[i] === undefined || _new[i] !== null ){
+      if ( !_new.hasOwnProperty(i) || _new[i] === undefined || _new[i] === null ){
         _new[i] = old[i];
       }
     }
@@ -263,7 +263,7 @@ var isMSIE = /*@cc_on!@*/0;
      * Collection of channels opened
      * @type {Object}
      */
-    ThunderChannelCollection.prototype.channels = {};
+    ThunderChannelCollection.prototype.channels = undefined;
 
     /**
      * Add new channel to channels collection
@@ -271,6 +271,12 @@ var isMSIE = /*@cc_on!@*/0;
      * @returns {boolean}
      */
     ThunderChannelCollection.prototype.add = function(channel){
+      if ( !channel['name'] ) {
+        throw {
+          name: 'thunder.channel.collection.already_exists',
+          message: "Channel.name not found."
+        };
+      }
       if ( !this.find(channel.name) ){
         this.channels[channel.name] = channel;
         return true;
@@ -310,7 +316,9 @@ var isMSIE = /*@cc_on!@*/0;
       return false;
     };
 
-    function ThunderChannelCollection(){};
+    function ThunderChannelCollection(){
+      this.channels = {};
+    };
 
     return ThunderChannelCollection;
   })();
@@ -396,13 +404,13 @@ var isMSIE = /*@cc_on!@*/0;
           message: 'Channel is not a string'
         };
 
-      if (this.thunder.socket.readyState === SockJS.OPEN) {
+      if (this.thunder.conn.socket.readyState === SockJS.OPEN) {
         if (_.indexOf(this.thunder.channels, this.name) !== -1) {
           typeof this.onSubscribeSuccess === 'function' && this.onSubscribeSuccess(this, 'Channel already subscribed');
           return true;
         }
 
-        this.thunder.socket.send("SUBSCRIBE " + this.name);
+        this.thunder.conn.socket.send("SUBSCRIBE " + this.name);
         this.thunder.channels[this.name] = this;
         typeof this.onSubscribeSuccess === 'function' && this.onSubscribeSuccess(this, 'Channel subscribed');
         return true;
@@ -515,7 +523,7 @@ var isMSIE = /*@cc_on!@*/0;
      * Saves the names of the subscribed channels
      * @type {Array}
      */
-    Thunder.prototype.channels = new ThunderChannelCollection();
+    Thunder.prototype.channels = undefined;
 
     /**
      * Create an object connection
@@ -673,10 +681,11 @@ var isMSIE = /*@cc_on!@*/0;
 
     function Thunder(options) {
       if (options === undefined) options = {};
-      _.extends(options, defaultOptions);
+      options = _.extends(options, defaultOptions);
       this.options = options;
       this.verifyOptions();
       this.options.server = formatedServer(this.options.server);
+      this.channels = new ThunderChannelCollection();
       this.connect();
     }
 
@@ -684,5 +693,8 @@ var isMSIE = /*@cc_on!@*/0;
 
   })();
 
-  window.Thunder = Thunder;
+  window.ThunderConnect           = ThunderConnect;
+  window.ThunderChannelCollection = ThunderChannelCollection;
+  window.ThunderChannel           = ThunderChannel;
+  window.Thunder                  = Thunder;
 })(window);
