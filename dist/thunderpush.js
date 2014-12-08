@@ -1,6 +1,6 @@
 /**
  * Thunderpush javascript client - based in (https://github.com/thunderpush/thunderpush-js)
- * @version v2.0.0 - 2014-12-06
+ * @version v2.0.0 - 2014-12-08
  * @link https://github.com/welingtonsampaio/thunderpush-js
  * @author Welington Sampaio
  * @license MIT License, http://www.opensource.org/licenses/MIT
@@ -13,25 +13,25 @@ var isMSIE = /*@cc_on!@*/0;
   var ArrayProto = Array.prototype, ObjProto = Object.prototype, FuncProto = Function.prototype;
 
   var
-      push = ArrayProto.push,
-      slice = ArrayProto.slice,
-      concat = ArrayProto.concat,
-      toString = ObjProto.toString,
-      hasOwnProperty = ObjProto.hasOwnProperty;
+    push = ArrayProto.push,
+    slice = ArrayProto.slice,
+    concat = ArrayProto.concat,
+    toString = ObjProto.toString,
+    hasOwnProperty = ObjProto.hasOwnProperty;
 
   var
-      nativeForEach = ArrayProto.forEach,
-      nativeMap = ArrayProto.map,
-      nativeReduce = ArrayProto.reduce,
-      nativeReduceRight = ArrayProto.reduceRight,
-      nativeFilter = ArrayProto.filter,
-      nativeEvery = ArrayProto.every,
-      nativeSome = ArrayProto.some,
-      nativeIndexOf = ArrayProto.indexOf,
-      nativeLastIndexOf = ArrayProto.lastIndexOf,
-      nativeIsArray = Array.isArray,
-      nativeKeys = Object.keys,
-      nativeBind = FuncProto.bind;
+    nativeForEach = ArrayProto.forEach,
+    nativeMap = ArrayProto.map,
+    nativeReduce = ArrayProto.reduce,
+    nativeReduceRight = ArrayProto.reduceRight,
+    nativeFilter = ArrayProto.filter,
+    nativeEvery = ArrayProto.every,
+    nativeSome = ArrayProto.some,
+    nativeIndexOf = ArrayProto.indexOf,
+    nativeLastIndexOf = ArrayProto.lastIndexOf,
+    nativeIsArray = Array.isArray,
+    nativeKeys = Object.keys,
+    nativeBind = FuncProto.bind;
 
   var _ = function (obj) {
     if (obj instanceof _) return obj;
@@ -80,18 +80,284 @@ var isMSIE = /*@cc_on!@*/0;
   _.extends = function (_new, old){
     var i;
     for(i in old){
-      if ( !_new.hasOwnProperty(i) || _new[i] === undefined || _new[i] !== null ){
+      if ( !_new.hasOwnProperty(i) || _new[i] === undefined || _new[i] === null ){
         _new[i] = old[i];
       }
     }
     return _new;
   };
+  window._ = _;
   /** UnderscoreJS Functions **/
+})(window);
 
-  // Thunder class
-  var Thunder, ThunderConnect, ThunderChannelCollection, ThunderChannel;
+(function(window, undefined) {
+  "use strict";
 
-  ThunderConnect = (function(){
+  var ThunderChannelObj;
+
+  ThunderChannelObj = (function(){
+    var id = 0;
+
+    function ThunderChannel(thunder, name, fnSuccess, fnError){
+      id++;
+      this.id = id;
+      this.handler_events = [];
+      this.thunder = thunder;
+      this.name = name;
+      this.onSubscribeSuccess = fnSuccess;
+      this.onSubscribeError = fnError;
+      this.subscribe();
+    }
+
+    ThunderChannel.prototype.handler_events = undefined;
+
+    /**
+     * Add new handler to event in channel
+     *
+     * @example
+     *   var thunder = new Thunder(options);
+     *   thunder.subscribe('my-channel', function(channel){
+     *     channel.bind('my-first-event', function(data, channel, event){
+     *       console.log(arguments);
+     *     });
+     *   });
+     *
+     *   thunder.bind('my-channel', 'my-second-event', function(data){
+     *     alert("Second event triggered: " + JSON.stringify(data) );
+     *   });
+     *
+     *
+     * @param {String} event
+     *   The event name to identify the triggers
+     *
+     * @param {Function} handler
+     *   Function that should be executed
+     *
+     */
+    ThunderChannel.prototype.bind = function(event, handler) {
+      if (typeof event !== 'string' || !_.isFunction(handler) ) {
+        throw {
+          name: 'thunder.channel.bind',
+          message: 'Invalid arguments type'
+        }
+      }
+      this.thunder.log("New handler has been registered to event '", event, "' and channel '", this.name, "'.");
+      this.handler_events.push([event, handler]);
+    };
+
+    /**
+     * Remove a handler event defined in hendler_events collection.
+     *
+     * @example
+     *   var thunder = new Thunder(options);
+     *   thunder.channels.find('my-channel', function(channel){
+     *     channel.unbind('my-first-event', fn_reference);
+     *   });
+     *   thunder.unbind('my-channel', 'my-second-event');
+     *
+     *
+     * @param {String} event
+     *   The event name to identify the triggers
+     *
+     * @param {Function} handler
+     *   Function that should be executed
+     *
+     * @return {Array} with removed events
+     */
+    ThunderChannel.prototype.unbind = function(event, handler) {
+      var length, i, removes = [];
+      this.thunder.log("Removes handler registered to event '", event, "' and channel '", this.name, "'.");
+      if ( event === undefined ){
+        removes = this.handler_events;
+        this.handler_events = [];
+        return removes;
+      }else{
+        length = this.handler_events.length;
+        for (i=(length-1); i>=0; i--) {
+          if (this.handler_events[i][0] === event && (!handler || this.handler_events[i][1] === handler) ) {
+            removes.push(this.handler_events.splice(i,1));
+          }
+        }
+        return removes;
+      }
+    };
+
+    /**
+     * Subscribe channel in connection
+     * @returns {boolean}
+     */
+    ThunderChannel.prototype.subscribe = function(){
+      if (typeof this.name !== 'string' || this.name.length <= 0)
+        throw {
+          name: 'channel.invalid',
+          message: 'Channel is not a string'
+        };
+
+      if (this.thunder.conn.socket.readyState === SockJS.OPEN) {
+        if ( this.thunder.channels.find(this.name) ) {
+          typeof this.onSubscribeSuccess === 'function' && this.onSubscribeSuccess(this, 'Channel already subscribed');
+          return true;
+        }
+
+        this.thunder.conn.socket.send("SUBSCRIBE " + this.name);
+        this.thunder.channels.add(this);
+        typeof this.onSubscribeSuccess === 'function' && this.onSubscribeSuccess(this, 'Channel subscribed');
+        return true;
+      }
+
+      typeof this.onSubscribeError === 'function' && this.onSubscribeError(this, 'Socket not open');
+      throw {
+        name: 'socket.status',
+        message: 'Socket not OPEN: ' + this.thunder.conn.socket.readyState
+      };
+    };
+
+    /**
+     * Unsubscribe channel in connection
+     * @param {Function} success
+     * @param {Function} error
+     * @returns {boolean}
+     */
+    ThunderChannel.prototype.unsubscribe = function(success, error){
+      if (this.thunder.conn.socket.readyState === SockJS.OPEN) {
+        this.thunder.conn.socket.send("UNSUBSCRIBE " + this.name);
+
+        this.thunder.channels.remove(this.name);
+
+        typeof success === 'function' && success(this, 'Channel unsubscribed');
+        return true;
+      }
+      else {
+        typeof error === 'function' && error(this, 'Socket not open');
+        throw {
+          name: 'socket.status',
+          message: 'Socket not OPEN: ' + this.thunder.conn.socket.readyState
+        };
+      }
+    };
+
+    /**
+     * Shoot the handlers for the given event
+     *
+     * @example
+     *    var channel = ThunderChannel(thunder, 'channel-name');
+     *    channel.bind('event-name', function(data){
+     *      alert(JSON.stringify(data));
+     *    });
+     *    channel.trigger('event-name', {data:'content'});
+     *
+     * @param {String} event
+     *    Event name configured in bind method
+     *
+     * @param {Object} data
+     *    Object to be passed to the function
+     */
+    ThunderChannel.prototype.trigger = function(event, data){
+      var key;
+      for(key in this.handler_events) {
+        this.handler_events[key][0] == event && this.handler_events[key][1](data);
+      }
+    };
+
+    return ThunderChannel;
+  })();
+
+
+  window.ThunderChannel = ThunderChannelObj;
+
+})(window);
+
+(function(window, undefined) {
+  "use strict";
+
+  var ThunderChannelCollectionObj;
+
+  ThunderChannelCollectionObj = (function(){
+
+    var id=1;
+
+    function ThunderChannelCollection(){
+      this.id = id + 1;
+      id++;
+      this.channels = new Object;
+    };
+    /**
+     * Collection of channels opened
+     * @type {Object}
+     */
+
+    /**
+     * Add new channel to channels collection
+     * @param {ThunderChannel} channel
+     * @returns {boolean}
+     */
+    ThunderChannelCollection.prototype.add = function(channel){
+      if ( !channel['name'] ) {
+        throw {
+          name: 'thunder.channel.collection.already_exists',
+          message: "Channel.name not found."
+        };
+      }
+      if ( !this.find(channel.name) ){
+        this.channels[channel.name] = channel;
+        return true;
+      }else{
+        throw {
+          name: 'thunder.channel.collection.already_exists',
+          message: "["+this.id+"] Channel '" + channel.name + "' already exists."
+        };
+      }
+    };
+
+    /**
+     * Removes a channel of collection
+     * @param {String} name
+     * @returns {boolean}
+     */
+    ThunderChannelCollection.prototype.remove = function(name){
+      if (this.find(name)){
+        delete this.channels[name];
+        return true;
+      }
+      return false;
+    };
+
+    /**
+     * Looking for a channel in the collection
+     * @param {String} name
+     * @param {Function} fn
+     *    If found
+     * @returns {ThunderChannel | FALSE}
+     */
+    ThunderChannelCollection.prototype.find = function(name, fn){
+      if ( this.channels.hasOwnProperty(name) ) {
+        _.isFunction(fn) && fn(this.channels[name]);
+        return this.channels[name];
+      }
+      return false;
+    };
+
+
+    return ThunderChannelCollection;
+  })();
+
+  window.ThunderChannelCollection = ThunderChannelCollectionObj;
+
+})(window);
+
+(function(window, undefined) {
+  "use strict";
+
+  var ThunderConnectObj;
+
+  ThunderConnectObj = (function(){
+
+    function ThunderConnect(thunder){
+      this.thunder = thunder;
+      this.options = thunder.options;
+      this.handlers = [];
+      this.connect();
+    }
 
     /**
      * Number of attempts reconnection
@@ -109,7 +375,7 @@ var isMSIE = /*@cc_on!@*/0;
      * Stores the callback functions of direct messages
      * @type {Array}
      */
-    ThunderConnect.prototype.handlers = [];
+    ThunderConnect.prototype.handlers = undefined;
 
     /**#!> Functions of callbacks */
     ThunderConnect.prototype.onopen = undefined;
@@ -228,7 +494,7 @@ var isMSIE = /*@cc_on!@*/0;
         }
 
         var delay = that.reconnect_delays[that.reconnect_tries] ||
-            that.reconnect_delays[that.reconnect_delays.length - 1];
+          that.reconnect_delays[that.reconnect_delays.length - 1];
 
         that.thunder.log("Reconnecting in", delay, "ms...");
         that.reconnect_tries++;
@@ -255,212 +521,18 @@ var isMSIE = /*@cc_on!@*/0;
       return false;
     };
 
-    function ThunderConnect(thunder){
-      this.thunder = thunder;
-      this.options = thunder.options;
-      this.connect();
-    }
-
     return ThunderConnect;
   })();
 
-  ThunderChannelCollection = (function(){
+  window.ThunderConnect = ThunderConnectObj;
 
-    /**
-     * Collection of channels opened
-     * @type {Object}
-     */
-    ThunderChannelCollection.prototype.channels = {};
+})(window);
 
-    /**
-     * Add new channel to channels collection
-     * @param {ThunderChannel} channel
-     * @returns {boolean}
-     */
-    ThunderChannelCollection.prototype.add = function(channel){
-      if ( !this.find(channel.name) ){
-        this.channels[channel.name] = channel;
-        return true;
-      }else{
-        throw {
-          name: 'thunder.channel.collection.already_exists',
-          message: "Channel " + channel.name + " already exists."
-        };
-      }
-    };
+(function(window, undefined){
+  "use strict";
 
-    /**
-     * Removes a channel of collection
-     * @param {String} name
-     * @returns {boolean}
-     */
-    ThunderChannelCollection.prototype.remove = function(name){
-      if (this.find(name)){
-        delete this.channels[name];
-        return true;
-      }
-      return false;
-    };
-
-    /**
-     * Looking for a channel in the collection
-     * @param {String} name
-     * @param {Function} fn
-     *    If found
-     * @returns {ThunderChannel | FALSE}
-     */
-    ThunderChannelCollection.prototype.find = function(name, fn){
-      if ( this.channels.hasOwnProperty(name) ) {
-        _.isFunction(fn) && fn(this.channels[name]);
-        return this.channels[name];
-      }
-      return false;
-    };
-
-    function ThunderChannelCollection(){};
-
-    return ThunderChannelCollection;
-  })();
-
-  ThunderChannel = (function(){
-
-    ThunderChannel.prototype.handler_events = [];
-
-    /**
-     * Add new handler to event in channel
-     *
-     * @example
-     *   var thunder = new Thunder(options);
-     *   thunder.subscribe('my-channel', function(channel){
-     *     channel.bind('my-first-event', function(data, channel, event){
-     *       console.log(arguments);
-     *     });
-     *   });
-     *
-     *   thunder.bind('my-channel', 'my-second-event', function(data){
-     *     alert("Second event triggered: " + JSON.stringify(data) );
-     *   });
-     *
-     *
-     * @param {String} event
-     *   The event name to identify the triggers
-     *
-     * @param {Function} handler
-     *   Function that should be executed
-     *
-     */
-    ThunderChannel.prototype.bind = function(event, handler) {
-      this.thunder.log("New handler has been registered to event '", event, "' and channel '", this.name, "'.");
-      this.handler_events.push([event, handler]);
-    };
-
-    /**
-     * Remove a handler event defined in hendler_events collection.
-     *
-     * @example
-     *   var thunder = new Thunder(options);
-     *   thunder.channels.find('my-channel', function(channel){
-     *     channel.unbind('my-first-event', fn_reference);
-     *   });
-     *   thunder.unbind('my-channel', 'my-second-event');
-     *
-     *
-     * @param {String} event
-     *   The event name to identify the triggers
-     *
-     * @param {Function} handler
-     *   Function that should be executed
-     *
-     * @return {Array} with removed events
-     */
-    ThunderChannel.prototype.unbind = function(event, handler) {
-      var length, i, removes = [];
-      this.thunder.log("Removes handler registered to event '", event, "' and channel '", this.name, "'.");
-      if ( event === undefined ){
-        removes = this.handler_events;
-        this.handler_events = [];
-        return removes;
-      }else{
-        length = this.handler_events.length;
-        for (i=(length-1); i>=0; length--) {
-          if (this.handler_events[i][0] === event && (!handler || this.handler_events[i][1] === handler) ) {
-            removes.push(this.handler_events.splice(i,1));
-            i--;
-          }
-        }
-        return removes;
-      }
-    };
-
-    /**
-     * Subscribe channel in connection
-     * @returns {boolean}
-     */
-    ThunderChannel.prototype.subscribe = function(){
-      if (typeof this.name !== 'string' || this.name.length <= 0)
-        throw {
-          name: 'channel.invalid',
-          message: 'Channel is not a string'
-        };
-
-      if (this.thunder.socket.readyState === SockJS.OPEN) {
-        if (_.indexOf(this.thunder.channels, this.name) !== -1) {
-          typeof this.onSubscribeSuccess === 'function' && this.onSubscribeSuccess(this, 'Channel already subscribed');
-          return true;
-        }
-
-        this.thunder.socket.send("SUBSCRIBE " + this.name);
-        this.thunder.channels[this.name] = this;
-        typeof this.onSubscribeSuccess === 'function' && this.onSubscribeSuccess(this, 'Channel subscribed');
-        return true;
-      }
-
-      typeof this.onSubscribeError === 'function' && this.onSubscribeError(this, 'Socket not open');
-      throw {
-        name: 'socket.status',
-        message: 'Socket not OPEN: '.this.thunder.socket.readyState
-      };
-    };
-
-    /**
-     * Unsubscribe channel in connection
-     * @param {Function} success
-     * @param {Function} error
-     * @returns {boolean}
-     */
-    ThunderChannel.prototype.unsubscribe = function(success, error){
-      var pos;
-      if (this.thunder.socket.readyState === SockJS.OPEN) {
-        this.thunder.socket.send("UNSUBSCRIBE " + this.name);
-
-        pos = _.indexOf(this.thunder.channels, this.name);
-
-        if (pos !== -1) {
-          this.thunder.channels.splice(pos, 1);
-        }
-
-        typeof success === 'function' && this.success(this, 'Channel unsubscribed');
-        return true;
-      }
-      else {
-        typeof error === 'function' && error(this, 'Socket not open');
-        throw {
-          name: 'socket.status',
-          message: 'Socket not OPEN: '.this.thunder.socket.readyState
-        };
-      }
-    };
-
-    function ThunderChannel(thunder, name, fnSuccess, fnError){
-      this.thunder = thunder;
-      this.name = name;
-      this.onSubscribeSuccess = fnSuccess;
-      this.onSubscribeError = fnError;
-      this.subscribe();
-    }
-
-    return ThunderChannel;
-  })();
+  // Thunder class
+  var Thunder;
 
   Thunder = (function(){
 
@@ -522,7 +594,7 @@ var isMSIE = /*@cc_on!@*/0;
      * Saves the names of the subscribed channels
      * @type {Array}
      */
-    Thunder.prototype.channels = new ThunderChannelCollection();
+    Thunder.prototype.channels = undefined;
 
     /**
      * Create an object connection
@@ -574,7 +646,7 @@ var isMSIE = /*@cc_on!@*/0;
       if ( !this.channels.find(channel, function(c){
         _.isFunction(fnSuccess) && fnSuccess(c);
       })) {
-        this.channels.add( new ThunderChannel(this, channel, fnSuccess, fnError) );
+        new ThunderChannel(this, channel, fnSuccess, fnError);
       }
     };
 
@@ -680,10 +752,11 @@ var isMSIE = /*@cc_on!@*/0;
 
     function Thunder(options) {
       if (options === undefined) options = {};
-      _.extends(options, defaultOptions);
+      options = _.extends(options, defaultOptions);
       this.options = options;
       this.verifyOptions();
       this.options.server = formatedServer(this.options.server);
+      this.channels = new ThunderChannelCollection();
       this.connect();
     }
 
@@ -691,5 +764,5 @@ var isMSIE = /*@cc_on!@*/0;
 
   })();
 
-  window.Thunder = Thunder;
+  window.Thunder                  = Thunder;
 })(window);

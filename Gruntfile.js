@@ -25,7 +25,11 @@ module.exports = function(grunt) {
         banner: '<%= meta.banner %>'
       },
       dist: {
-        src: ['src/*.js'],
+        src: [
+          'src/base.js',
+          'src/thunderpush_*.js',
+          'src/thunderpush.js'
+        ],
         dest: '<%= dirs.dest %>/<%= pkg.name %>.js'
       }
     },
@@ -65,9 +69,33 @@ module.exports = function(grunt) {
         }
       }
     },
+    jasmine: {
+      test: {
+        src: ['src/**/*.js'],
+        options: {
+          specs: 'spec/*_spec.js',
+          helpers: 'spec/*_helper.js'
+        }
+      }
+    },
     changelog: {
       options: {
         dest: 'CHANGELOG.md'
+      }
+    },
+    watch: {
+      test: {
+        files: ['src/**/*.js', 'spec/*_spec.js', 'spec/*_helper.js'],
+        tasks: ['jasmine']
+      }
+    },
+    notify_hooks: {
+      options: {
+        enabled: true,
+        max_jshint_notifications: 5,
+        title: "ThunderPush",
+        success: false,
+        duration: 3
       }
     }
   });
@@ -88,6 +116,12 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-conventional-changelog');
 
   grunt.loadNpmTasks('grunt-zip');
+
+  grunt.loadNpmTasks('grunt-contrib-watch');
+
+  grunt.loadNpmTasks('grunt-contrib-jasmine');
+
+  grunt.loadNpmTasks('grunt-notify');
 
 
   // Default task.
@@ -118,4 +152,9 @@ module.exports = function(grunt) {
     grunt.log.ok('Version bumped to ' + version);
   });
 
+  // Define the test task.
+  grunt.registerTask('test', ['jasmine']);
+
+  // This is required if you use any options.
+  grunt.task.run('notify_hooks');
 };
