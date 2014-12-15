@@ -23,12 +23,23 @@
        */
       retry: true,
       /**
+       * Defines uri to connect
+       * @type {String}
+       */
+      authEndpoint: '/thunderpush/auth',
+      /**
        * Default headers to XHR requests
+       *
+       * TODO: not implemented
+       *
        * @type {Object}
        */
       headers: {},
       /**
        * Default parameters to XHR requests
+       *
+       * TODO: not implemented
+       *
        * @type {Object}
        */
       params: {},
@@ -111,13 +122,17 @@
      *
      * @param {Function} fnError
      *    Function triggered when error
+     *
+     * @returns {ThunderChannel}
      */
     Thunder.prototype.subscribe = function(channel, fnSuccess, fnError){
-      if ( !this.channels.find(channel, function(c){
-        _.isFunction(fnSuccess) && fnSuccess(c);
-      })) {
-        new ThunderChannel(this, channel, fnSuccess, fnError);
+      if (typeof channel !== 'string' ) {
+        throw {
+          name: 'thunder.subscribe',
+          message: 'Channel isn\'t string'
+        }
       }
+      return new ThunderChannel(this, channel, fnSuccess, fnError);
     };
 
     /**
@@ -133,11 +148,14 @@
      *    Function triggered when error
      */
     Thunder.prototype.unsubscribe = function(channel, fnSuccess, fnError){
-      var that;
-      that = this;
+      if (typeof channel !== 'string' ) {
+        throw {
+          name: 'thunder.unsubscribe',
+          message: 'Channel isn\'t string'
+        }
+      }
       this.channels.find(channel, function(c){
         c.unsubscribe(fnSuccess, fnError);
-        that.remove(channel);
       });
     };
 
@@ -178,14 +196,18 @@
      * @param {String} event
      *    The name of event (Optional)
      *
-     * @param {Function} handler
+     * @param {Function} fn
      *    Function triggered when receive this event (Optional)
      */
-    Thunder.prototype.unbind = function(parameters){
-      var channel;
-      channel = parameters.splice(0,1);
+    Thunder.prototype.unbind = function(channel, event, fn){
+      if(typeof channel !== 'string'){
+        throw {
+          name: 'thunder.unbind',
+          message: 'Channel name is invalid'
+        }
+      }
       this.channels.find(channel, function(c){
-        c.unbind.apply(parameters);
+        c.unbind.apply(c , [event, fn]);
       });
     };
 

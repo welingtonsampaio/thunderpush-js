@@ -68,6 +68,34 @@
       return false;
     };
 
+    /**
+     * Iterate in all elements of collection
+     *
+     * @example
+     *    // Execute subscribe method in all channels of this collection
+     *    var collection = new ThunderChannelCollection();
+     *    collection.each(function(channel){
+     *      channel.subscribe();
+     *    });
+     *
+     * @param {Function} fn
+     *    Callback of iteration
+     */
+    ThunderChannelCollection.prototype.each = function(fn){
+      var entry, keys;
+      if (typeof fn !== 'function') {
+        throw {
+          name: 'thunder.channel.collection.each',
+          message: 'Invalid argument, expect Function'
+        }
+      }
+      keys = Object.keys(this.channels);
+      for (var i= 0,length=keys.length; i<length; i++) {
+        entry = keys[i];
+        fn(this.channels[entry]);
+      }
+    };
+
 
     return ThunderChannelCollection;
   })();

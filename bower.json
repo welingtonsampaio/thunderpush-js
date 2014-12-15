@@ -1,6 +1,6 @@
 {
   "name": "thunderpush-client",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "main": "./dist/thunderpush.js",
   "description": "Client for Thunderpush push server - based in (https://github.com/thunderpush/thunderpush-js)",
   "repository": {

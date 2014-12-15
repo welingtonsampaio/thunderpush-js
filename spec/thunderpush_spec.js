@@ -47,11 +47,18 @@ describe('Thunder', function(){
     var t = getThunder1();
     expect(t.options.server).toEqual('http://localhost/connect');
   });
-  
+
   it('should connect automatically when instantiated', function(){
     window.SockJS = jasmine.createSpy();
     getThunder1();
     expect(SockJS.calls.count()).toEqual(1);
+  });
+
+  it('should be able to add new abstract listener', function(){
+    var t = getThunder1(),
+      fn = jasmine.createSpy();
+    t.listen(fn);
+    expect(t.conn.handlers).toEqual([fn]);
   });
 
   describe('Distinct object', function(){
@@ -88,7 +95,6 @@ describe('Thunder', function(){
 
     });
 
-
   });
 
   describe('Channels - References', function(){
@@ -115,7 +121,7 @@ describe('Thunder', function(){
 
   });
 
-  describe('Subscribe/Unsubscribe and Bind/Unbind - References', function(){
+  describe('Subscribe - References', function(){
 
     it('should be able to create an object ThunderChannel when subscribed', function(){
       var t = getThunder1();
@@ -123,7 +129,133 @@ describe('Thunder', function(){
       expect(t.channels.find('channel')).toEqual(jasmine.any(ThunderChannel));
     });
 
+    it('should create a uniq channel from name', function(){
+      var t, chn;
+      t = getThunder1();
+      t.subscribe('channel');
+      chn = t.channels.find('channel');
+      t.subscribe('channel', function(c){
+        expect(c).toEqual(chn);
+      });
+    });
 
+    it('should dispatch a exception case channel name isn\'t string', function(){
+      var t = getThunder1();
+      expect(function(){
+        t.subscribe();
+      }).toThrow();
+    });
+
+    it('should trigger a callback when successfully response', function(){
+      var t = getThunder1(),
+        fn = jasmine.createSpy();
+      t.subscribe('name', fn);
+      expect(fn).toHaveBeenCalled();
+    });
+
+    it('should trigger a callback when error response', function(){
+      var t = getThunder1(),
+        fn = jasmine.createSpy();
+      t.conn.socket.readyState = 2;
+      expect(function(){
+        t.subscribe('name', null, fn);
+      }).toThrow();
+      expect(fn).toHaveBeenCalled();
+    });
+
+  });
+
+  describe('Unsubscribe - References', function(){
+    var t, chn;
+
+    beforeEach(function() {
+      t = getThunder1();
+      t.subscribe('channel', function(channel){
+        chn = channel;
+      });
+    });
+
+    it('should be able to remove a collection channel', function(){
+      t.unsubscribe('channel');
+      expect(t.channels.find('channel')).toBeFalsy();
+    });
+
+    it('should dispatch a exception case channel name isn\'t string', function(){
+      expect(function(){
+        t.unsubscribe();
+      }).toThrow();
+    });
+
+    it('should trigger a callback when successfully response', function(){
+      var fn = jasmine.createSpy();
+      t.unsubscribe('channel', fn);
+      expect(fn).toHaveBeenCalled();
+    });
+
+    it('should trigger a callback when error response', function(){
+      var fn = jasmine.createSpy();
+      t.conn.socket.readyState = 2;
+      expect(function(){
+        t.subscribe('channel', null, fn);
+      }).toThrow();
+      expect(fn).toHaveBeenCalled();
+    });
+
+  });
+
+  describe('Bind - References', function() {
+    var t, fn;
+
+    beforeEach(function(){
+      t = getThunder1();
+      fn = jasmine.createSpy();
+    });
+
+    it('should be able to add an event to run', function(){
+      t.bind('channel', 'event', fn);
+      expect(t.channels.find('channel').handler_events).toEqual([['event', fn]]);
+    });
+
+    it('if you are not subscribed to the channel, it will subscribe', function(){
+      expect(t.channels.find('channel')).toEqual(false);
+      t.bind('channel', 'event', fn);
+      expect(t.channels.find('channel')).toEqual(jasmine.any(ThunderChannel));
+    });
+
+  });
+
+  describe('Unbind - References', function() {
+    var t, fn1, fn2;
+
+    beforeEach(function(){
+      t = getThunder1();
+      fn1 = jasmine.createSpy();
+      fn2 = jasmine.createSpy();
+      t.bind('channel', 'event1', fn1);
+      t.bind('channel', 'event1', fn2);
+      t.bind('channel', 'event2', fn2);
+    });
+
+    it('should be able to remove an event of the collection', function(){
+      t.unbind('channel');
+      expect(t.channels.find('channel').handler_events).toEqual([]);
+    });
+
+    it('should remove all events by name', function(){
+      t.unbind('channel', 'event1');
+      expect(t.channels.find('channel').handler_events).toEqual([['event2', fn2]]);
+    });
+
+    it('should remove a specific event informing the handler', function(){
+      t.unbind('channel', 'event1', fn1);
+      expect(t.channels.find('channel').handler_events).toEqual([['event1', fn2],['event2', fn2]]);
+    });
+
+    it('should dispatch a exception case channel name isn\'t a string', function(){
+      expect(function(){
+        t.unbind();
+      }).toThrow();
+    });
 
   });
 

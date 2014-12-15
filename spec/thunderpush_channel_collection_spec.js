@@ -122,4 +122,28 @@ describe('ThunderChannelCollection', function(){
 
   });
 
+  describe('Each method - References', function(){
+
+    var chn, obj1, obj2, fn;
+
+    beforeEach(function() {
+      fn = jasmine.createSpy(),
+        chn = getChannel(),
+        obj1 = {name: 'channel'},
+        obj2 = {name: 'channel2'};
+      chn.add(obj1);
+      chn.add(obj2);
+    });
+
+    it('should be able to called a function in all channels into collection', function(){
+      chn.channels[obj1.name].subscribe = fn;
+      chn.channels[obj2.name].subscribe = fn;
+      chn.each(function(channel){
+        channel.subscribe();
+      });
+      expect(fn.calls.count()).toEqual(2);
+    });
+
+  });
+
 });

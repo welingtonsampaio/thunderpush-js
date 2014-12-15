@@ -85,26 +85,25 @@
 
       // Clousore to open callback
       this.socket.onopen = function(e){
-        if (_.isFunction(that.onOpen) ){
+        that.thunder.log("Connection has been estabilished.");
 
-          that.thunder.log("Connection has been estabilished.");
+        that.onopen && that.onopen.apply(that, arguments);
 
-          if (that.onOpen) that.onopen.apply(that, arguments);
+        // reset retries counter
+        that.reconnect_tries = 0;
 
-          // reset retries counter
-          that.reconnect_tries = 0;
+        // connect and subscribe to channels
+        that.socket.send("CONNECT " + JSON.stringify({data: {user: that.options.user,  apikey: that.options.apikey}}));
 
-          // connect and subscribe to channels
-          that.socket.send("CONNECT " + that.options.user + ":" + that.options.apikey);
-
-          if (that.thunder.channels.length)
-            that.socket.send("SUBSCRIBE " + that.thunder.channels.join(":"));
-        }
-      };
+        // Subscribe in channels
+        that.thunder.channels.each(function(channel){
+          channel.subscribe(undefined, true);
+        });
+      }
 
       // Clousore to message callback
       this.socket.onmessage = function(e){
-        var json_data, i, len, channel, event;
+        var json_data, i, len, channel, event, channelObj;
 
         that.thunder.log("Message has been received", e.data);
 
@@ -121,8 +120,15 @@
           throw 'Exception in conversion data';
         }
 
+        // Trigger Abstracts handlers
         for (i=0,len=that.handlers.length; i < len; i++) {
           that.handlers[i](json_data);
+        }
+
+        // Trigger Events handlers
+        if (event){
+          channelObj = that.thunder.channels.find(channel);
+          channelObj && channelObj.trigger(event, json_data);
         }
 
         if (_.isFunction(that.onMessage) ){
