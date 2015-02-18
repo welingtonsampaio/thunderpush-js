@@ -153,15 +153,15 @@ describe('Thunder', function(){
       expect(fn).toHaveBeenCalled();
     });
 
-    it('should trigger a callback when error response', function(){
-      var t = getThunder1(),
-        fn = jasmine.createSpy();
-      t.conn.socket.readyState = 2;
-      expect(function(){
-        t.subscribe('name', null, fn);
-      }).toThrow();
-      expect(fn).toHaveBeenCalled();
-    });
+    //it('should trigger a callback when error response', function(){
+    //  var t = getThunder1(),
+    //    fn = jasmine.createSpy();
+    //  t.conn.socket.readyState = 2;
+    //  expect(function(){
+    //    t.subscribe('name', null, fn);
+    //  }).toThrow();
+    //  expect(fn).toHaveBeenCalled();
+    //});
 
   });
 
@@ -192,14 +192,14 @@ describe('Thunder', function(){
       expect(fn).toHaveBeenCalled();
     });
 
-    it('should trigger a callback when error response', function(){
-      var fn = jasmine.createSpy();
-      t.conn.socket.readyState = 2;
-      expect(function(){
-        t.subscribe('channel', null, fn);
-      }).toThrow();
-      expect(fn).toHaveBeenCalled();
-    });
+    //it('should trigger a callback when error response', function(){
+    //  var fn = jasmine.createSpy();
+    //  t.conn.socket.readyState = 2;
+    //  expect(function(){
+    //    t.subscribe('channel', null, fn);
+    //  }).toThrow();
+    //  expect(fn).toHaveBeenCalled();
+    //});
 
   });
 

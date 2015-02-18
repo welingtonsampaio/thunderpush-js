@@ -1,6 +1,6 @@
 /**
  * Thunderpush javascript client - based in (https://github.com/thunderpush/thunderpush-js)
- * @version v2.0.1 - 2014-12-15
+ * @version v2.0.1 - 2015-02-18
  * @link https://github.com/welingtonsampaio/thunderpush-js
  * @author Welington Sampaio
  * @license MIT License, http://www.opensource.org/licenses/MIT
@@ -242,31 +242,35 @@ var isMSIE = /*@cc_on!@*/0;
           message: 'Channel is not a string'
         };
 
-      if (this.thunder.conn.socket.readyState === SockJS.OPEN) {
-        if ( this.thunder.channels.find(this.name) && !force ) {
-          typeof this.onSubscribeSuccess === 'function' &&
-            this.onSubscribeSuccess(this.thunder.channels.find(this.name), 'Channel already subscribed');
-          return true;
-        }
 
-        if ( !rgx.test(this.name) || data.hasOwnProperty('auth') ) {
-          this.thunder.conn.socket.send("SUBSCRIBE " + JSON.stringify(_.extends({user:this.thunder.options.user, channel:this.name}, data)));
-          this.thunder.channels.find(this.name) || this.thunder.channels.add(this);
-          typeof this.onSubscribeSuccess === 'function' && this.onSubscribeSuccess(this, 'Channel subscribed');
-          return true;
-        }else{
-          var originData = data;
-          ajax(this.thunder.options.authEndpoint, function(data){
-            that.subscribe(_.extends(originData, data), force);
-          }, {'thunderpush[user]': this.thunder.options.user, 'thunderpush[channel]': this.name});
-        }
+      if ( this.thunder.channels.find(this.name) && !force ) {
+        typeof this.onSubscribeSuccess === 'function' &&
+          this.onSubscribeSuccess(this.thunder.channels.find(this.name), 'Channel already subscribed');
+        return true;
       }
 
-      typeof this.onSubscribeError === 'function' && this.onSubscribeError(this, 'Socket not open');
-      throw {
-        name: 'socket.status',
-        message: 'Socket not OPEN: ' + this.thunder.conn.socket.readyState
-      };
+      if ( !rgx.test(this.name) || data.hasOwnProperty('auth') ) {
+        if (this.thunder.conn.socket.readyState === SockJS.OPEN) {
+          this.thunder.conn.socket.send("SUBSCRIBE " + JSON.stringify(_.extends({
+            user: this.thunder.options.user,
+            channel: this.name
+          }, data)));
+        }
+        this.thunder.channels.find(this.name) || this.thunder.channels.add(this);
+        typeof this.onSubscribeSuccess === 'function' && this.onSubscribeSuccess(this, 'Channel subscribed');
+        return true;
+      }else{
+        var originData = data;
+        ajax(this.thunder.options.authEndpoint, function(data){
+          that.subscribe(_.extends(originData, data), force);
+        }, {'thunderpush[user]': this.thunder.options.user, 'thunderpush[channel]': this.name});
+      }
+
+      //typeof this.onSubscribeError === 'function' && this.onSubscribeError(this, 'Socket not open');
+      //throw {
+      //  name: 'socket.status',
+      //  message: 'Socket not OPEN: ' + this.thunder.conn.socket.readyState
+      //};
     };
 
     /**
